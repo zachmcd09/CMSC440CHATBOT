@@ -1,0 +1,153 @@
+# ChatServer.py
+
+from collections import deque
+import socket
+from socket import AF_INET, SOCK_STREAM
+import sys
+import logging
+import threading
+import argparse
+import json
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+class ChatServer:
+    def __init__(self, ip, port):
+        self.logger = logging.getLogger(__name__)
+        self.port = port
+        self.ip = ip
+        self.server_socket = socket.socket(AF_INET, SOCK_STREAM)
+        self.client_dict = dict()  # dictionary of connected clients
+        self.active_clients = deque()  # Use deque to efficiently add/remove clients
+        self.lock = threading.Lock()   # lock for thread-safe access to client_dict
+
+    def broadcast_message(self, sender, message):
+        """
+        Broadcasts a message to all connected clients.
+
+        Args:
+            sender: The client sending the message.
+            message: The message to broadcast.
+        """
+        try:
+            with self.lock:
+                for socket in self.active_clients:
+                    if socket != sender:
+                        try:
+                            socket.send(message.encode())
+                        except Exception as e:
+                            logging.error(f'Failed to send message to client {socket}: {str(e)}')
+                            self.rm_client(socket)  # Remove the client if an error occurs
+        except Exception as e:
+            self.logger.error(f'Error occurred while broadcasting message: {str(e)}')
+
+
+    def add_client(self, client, socket):
+        """
+        Adds a new client to the client dictionary.
+
+        Args:
+            client: The client's address.
+            socket: The client's socket.
+        """
+        try:
+            with self.lock:
+                if client not in self.client_dict:  # Check if the client is already connected
+                    self.client_dict[client] = socket
+                    self.active_clients.append(socket)  # Add to both dict and set for broadcasting
+                    logging.info(f'Client {client} connected successfully.')
+        except KeyError as e:
+            logging.error(f'Error occurred while adding client {client}: {str(e)}')
+
+
+    
+    def rm_client(self, client):
+        """
+        Removes a client from the client dictionary and closes their socket.
+        Args:
+            client: The client's address.
+        """
+        try:
+            with self.lock:
+                connectionSocket = self.client_dict.pop(client)
+                connectionSocket.close()
+                self.active_clients.remove(connectionSocket)
+                logging.info(f'Client {client} disconnected successfully.')
+        except KeyError as e:
+            logging.error(f'Error occurred while removing client {client}: {str(e)}')
+        except ValueError:
+            logging.error(f'Socket for client {client} not found in active clients list.')
+        except Exception as e:
+            logging.error(f'Unexpected error occurred while disconnecting client {client}: {str(e)}')
+
+
+    def client_handler(self, connectionSocket, addr):
+        """
+        Handles a multiple client connections, processes multiple incoming messages in FIFO order,
+        broadcasts messages, and manages client disconnections upon request.
+
+        Args:
+            connectionSocket: The client's socket.
+            addr: The client's address.
+        """
+        try:
+            self.add_client(addr, connectionSocket)
+            self.logger.info('Client %s made connection', addr)
+            
+            while True:
+                clientEncoded = connectionSocket.recv(1024)
+                if not clientEncoded:
+                    break  # Client disconnected
+                
+                clientMessage = clientEncoded.decode()
+                self.logger.info('FROM CLIENT %s: %s', addr, clientMessage)
+                serverSentence = "DISCONNECT" if clientMessage.strip().upper() == "DISCONNECT" else clientMessage
+                self.broadcast_message(connectionSocket, serverSentence)
+                connectionSocket.send(serverSentence.encode())
+                self.logger.info('TO CLIENT %s: %s', addr, serverSentence)
+                
+        except Exception as e:
+            logging.error("Failed to handle client %s: %s", addr, str(e))
+        finally:
+            self.rm_client(addr)  # Ensure the client is removed and the socket is closed
+
+
+
+    def start(self):
+        """Start the chat server."""
+        self.server_socket = socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket.bind((self.ip, self.addr))
+        self.server_socket.listen()
+
+        print("Chat server is running...")
+
+        while True:
+            connectionSocket, addr = self.server_socket.accept()
+            client_thread = threading.Thread(target=self.client_handler, args=(connectionSocket, addr))
+            client_thread.start()
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Start a chat server.")
+    parser.add_argument("port", type=int, help="Port number must be between 1 and 65536.")
+    parser.add_argument("server_ip", help="Server IP address.")
+    args = parser.parse_args()
+    server_ip = args.server_ip
+    port = args.port
+    try:
+        if not 1 <= port <= 65536:
+            raise ValueError("Port number must be between 1 and 65536.")
+    except ValueError as e:
+        logging.error(str(e))
+        sys.exit(1)  # Exit with an error code
+    ActiveServer = ChatServer(server_ip, port)
+    ActiveServer.server_socket.bind((server_ip, port))
+    ActiveServer.server_socket.listen(1)
+    logging.info(f'ChatServer started with server IP: {server_ip}, port: {port}')
+    connectionSocket, addr = ActiveServer.server_socket.accept()
+    client_thread = threading.Thread(target=lambda: ActiveServer.client_handler(connectionSocket, addr))
+    client_thread.start()  # Start handling the client in a new thread
+
+
+if __name__ == "__main__":
+    main()

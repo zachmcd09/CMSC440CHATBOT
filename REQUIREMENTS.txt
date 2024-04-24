@@ -1,0 +1,166 @@
+In this assignment, you will demonstrate your understanding of socket programming for TCP connections by developing a Basic Chat Application. This project aims to familiarize you with the creation and management of TCP connections, handling multiple client connections on the server-side, and implementing client-server communication where messages are prefixed with the sender's nickname. This application will serve as a foundational exercise in understanding the client-server model, TCP/IP protocols, and the intricacies of network programming.
+
+
+The Basic Chat Application operates on a client-server architecture using TCP/IP protocols for reliable communication. Upon initiating the application, the server starts listening on a specified port for incoming client connections. Clients, upon launching, connect to the server by providing a unique nickname and a client ID, along with the server's IP address and port number. Once connected, clients can send messages to the server, which then prepends these messages with the sender's nickname and broadcasts them to all other connected clients. This setup allows for real-time, multi-user communication, where each participant can see messages from others, identified by their chosen nicknames. The server handles multiple connections simultaneously, ensuring smooth and continuous communication among clients. This model exemplifies fundamental networking concepts such as TCP/IP communication, the client-server model, and socket programming, providing a practical framework for understanding data exchange over networks. Below is the main server and client functionalities.
+
+—
+
+Server Functionality:
+
+Connection Management: The server listens on a specified port for incoming client connections. When a client attempts to connect, the server accepts this connection, establishing a communication channel.
+
+
+Nickname Management: As clients connect, they provide a unique nickname that the server tracks. This nickname is used to identify messages from the client throughout their session. The server ensures the uniqueness of nicknames, preventing duplicates and potential confusion.
+
+
+Message Broadcasting: Upon receiving a message from a client, the server prepends the sender's nickname to the message and broadcasts this message to all other connected clients. This way, everyone in the chat knows who the message is from.
+
+
+Concurrency Handling: The server is capable of handling multiple client connections simultaneously. It uses threading or select/poll mechanisms to manage concurrent connections, ensuring that the communication for one client does not block or interrupt the communication of another.
+
+
+Graceful Disconnection: The server detects when a client disconnects and removes them from the list of active clients. It handles disconnections gracefully, ensuring the chat can continue uninterrupted for the remaining clients.
+
+
+—
+Client Functionality:
+```
+Server Connection: The client initiates a connection to the server using the server's IP address and port number, along with providing a unique nickname and a client ID. This information is used to establish a session with the server.
+
+Sending Messages: Once connected, the client can send messages to the server. These messages are then broadcasted by the server to all other connected clients, prefixed with the sender's nickname.
+
+Receiving Messages: The client continuously listens for messages from the server. These messages include broadcasts from other clients. Upon receiving a message, the client displays it, allowing the user to see the conversation in real-time.
+
+
+User Interface: The client provides an interface for the user to interact with the application. This interface allows the user to enter messages to be sent and displays messages received from the server. A command-line interface is the minimum requirement.
+```
+
+—
+ChatClient Requirements and Actions:
+```
+Your client should be named ChatClient.py.
+The ChatClient must connect to the chat server and support sending and receiving messages.
+
+  The ChatClient should accept four command-line arguments:
+- <hostname> or <ip> of your chat server,
+- <port› number your server is running on,
+- ‹nickname>, a unique identifier for the user in the chat,
+- <ClientID>, a unique identifier for the client session.
+
+
+  Example: ChatClient 10.0.0.1 12345 John 001
+- If the first argument is a hostname, it is your responsibility to resolve it to an IP address.
+- If any arguments are missing or incorrect, exit after printing an error message "ERR - arg x", where x is the argument number.
+
+
+The client should establish a TCP connection to the ChatServer using the provided hostname/IP and port.
+- Upon starting, print a message in the format:
+    - "ChatClient started with server IP: <ip>, port: <port>, nickname: <nickname>, client ID: <ClientID>, Date/Time: <date/time>"
+
+Immediately after establishing a connection, the client sends a message to the server requesting to join the chat with the provided nickname.
+- The structure for this initial message should be: { "type": "nickname" "nickname": "<nickname>”, “clientID": "<ClientID>", "timstamp": "'<timestamp>"｝.
+- If the nickname is already in use, the server will respond with an error, prompting the client to choose a different nickname.
+
+
+
+The client captures user input from the command line or GUI and sends it to the server as a chat message.
+- Each chat message sent to the server must be structured as: 
+{ "type": "message", "nickname": "<nickname>", "message": "<user's message>”, "timestamp": "<timestamp>” }
+- The client should attach a timestamp to each message before sending it to ensure that message ordering can be preserved and displayed correctly on all clients.
+
+
+The client continuously listens for messages from the server.
+- Incoming messages from the server will have the structure: { "type": "broadcast", "nickname": "<sender's nickname>", "message": "<message content>", "timestamp": "<timestamp>" }.
+- The client should display these messages to the user, prefixing them with the sender's nickname and formatting the timestamp for readability in the following format: "<data/time> :: <Client Nickname>: <the message>".
+
+
+If the user wishes to disconnect, by typing a predefined command "disconnect", the client sends a disconnection request to the server: 
+{ "type": "disconnect", "nickname": "<nickname>", "clientID": "<ClientID>" }
+- Upon receiving acknowledgment from the server, the client gracefully closes the TCP connection.
+- Upon exiting, the client displays statistics about its chat session in the following format: "Summary: start:<start date/time>, end:<end date/time>, msg sent:<# of sent messages>, msg rev:<# of received messages>, char sent:# of sent characters>, char rev:# of received characters>"
+```
+—
+
+ChatServer Requirements and Actions:
+```
+Your server should be named ChatServer.py
+
+The server must accept one command-line argument: < port>, which is the port it will listen on for incoming connections from clients.
+- Perform error checking on the port to ensure it is a positive integer less than 65536.
+- Exit with an error message "ERR - arg x" if the port argument is incorrect.
+
+If the program is successful in creating the server socket using the input port number argument, your program should print this out in the format of:
+- “ChatServer started with server IP: <ip>, port: <port> ...", where < port> is the input argument, and <ip> is the IP address of the server machine.
+
+ If your program is unsuccessful in creating the socket using the input port number argument, it is because this port number is already being taken by another active
+- In this case, the program should exit after printing an error message "ERR - cannot create ChatServer socket using port number <port>", where port is the input argument.
+
+  The server should manage multiple client connections, handle incoming messages, and broadcast them with the sender's nickname prefixed.
+  The server listens on the specified port for incoming TCP connections from clients.
+- Upon accepting a connection, the server prompts for the client's nickname in the format:
+ "<date/time> :: <client nickname>: connected.", and registers it.
+
+
+
+The server maintains a list of current connections, including the client's nickname and unique ID.
+- If a new client attempts to register with an already used nickname, the server sends a message: { "type": "error", "message": "Nickname already in use"?, prompting them to choose another.
+
+The server receives structured messages from clients and determines the action based on the "type" field (e.g., "nickname", "message", "disconnect").
+
+For each chat message arrives to the server from a client, the server needs to print the client's IP address, port, client nickname, client ID, timestamp, and the message-size in this format:
+- “Received: IP:<ip>, Port:<port>, Client-Nickname:< Client Nickname>, ClientID:<ClientID>, Date/Time:<date/time>, Msg-Size:<msg size>"
+The server broadcasts the message to all other connected clients except the sender, preserving the sender's nickname and timestamp.
+
+
+
+The broadcasted message retains the structure provided by the sender to ensure consistency across the application.
+The server needs to print the list of clients the message is broadcasted to, using the following format:
+- “Broadcasted: <Clientl Nickname>, <Client2 Nickname>,
+<Client3 Nickname>,..."
+
+
+The server processes disconnection requests by removing the client from the list of active connections and prompts about the disconnection by printing: "<date/time> :: <client nickname>: disconnected."
+- The server handles any connection errors or exceptions by safely removing the client from the list of active connections and closing the TCP connection if necessary.
+The ChatServer program should remain running until the user closes it with Ctrl-C.
+Once you have your server working, you could test with your ChatClient
+```
+—
+
+Python Output Examples
+
+ChatClient EXAMPLE:
+```
+> python ChatClient.py 10.0.0.1 12345 John 001
+
+ChatClient started with server IP: 10.0.0.1, port: 12345, nickname: Alice, client ID: 001
+
+Enter message:
+
+Hello, everyone!
+
+2024-03-21 10:30:45 : Alice: Hi John, welcome!
+2023-03-21 10:30:46 :: Bob: Hey John!
+
+disconnect
+
+Summary: start: 2024-03-21 10:30:43, end: 2024-03-21 10:30:47, msg sent:1, msg rcv:2, char sent: 16, char rev:26
+```
+—
+ChatServer EXAMPLE:
+```
+> python ChatServer.py 12345
+ChatServer started with server IP: 10.0.0.1, port: 12345 ...
+.
+.
+.
+2024-03-21 10:30:25 :: Alice: connected.
+2024-03-21 10:30:33 :: Bob: connected.
+2024-03-21 10:30:43 :: John: connected.
+Received: IP: 10.0.0.2, Port:50792, Client-Nickname:John, ClientID:001, Date/Time: 2024-03-21 10:30:44, Msg-Size: 16
+Broadcasted: Alice, Bob
+Received: IP:10.0.0.1, Port:50888, Client-Nickname:Alice, ClientID:002, Date/Time: 2024-03-21 10:30:45, Msg-Size:17
+Broadcasted: John, Bob
+Received: IP:10.0.0.2, Port:50675, Client-Nickname:Bob, ClientID:003, Date/Time: 2024-03-21 10:30:46, Msg-Size:9
+Broadcasted: John, Alice
+2024-03-21 10:30:47 :: John: disconnected.
+```
